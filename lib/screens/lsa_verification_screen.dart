@@ -42,9 +42,38 @@ class _LsaVerificationScreenState extends State<LsaVerificationScreen> {
     super.initState();
     _predecessorId = widget.initialPredecessorId;
     _apiService = widget.apiService ?? ComplianceApiService();
-    _frictionLogger = FrictionLogger(fieldName: 'parent_consent_code');
+    _frictionLogger = FrictionLogger(
+      fieldName: 'parent_consent_code',
+      onLog: (logMessage) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.timer_outlined, color: Colors.amberAccent, size: 18),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'UI Friction Event Logged (>5s hesitation on parent_consent_code)',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF0F172A),
+            duration: const Duration(seconds: 3),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      },
+    );
     _consentFocusNode.addListener(_handleFocusChange);
-    _consentCodeController.addListener(_frictionLogger.onInteractionStart);
+    // Note: we do NOT add a controller listener here because that fires
+    // on programmatic text changes (e.g. _loadScenario). The timer resets
+    // on actual user typing via onChanged on the TextField itself.
     _loadScenario(1);
   }
 
@@ -209,6 +238,9 @@ class _LsaVerificationScreenState extends State<LsaVerificationScreen> {
                     TextField(
                       controller: _consentCodeController,
                       focusNode: _consentFocusNode,
+                      // Reset the friction timer on every real keystroke from the user.
+                      // This is separate from the controller listener which also fires on programmatic changes.
+                      onChanged: (_) => _frictionLogger.onInteractionStart(),
                       style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
                       decoration: InputDecoration(
                         labelText: 'Parent Consent Code',
